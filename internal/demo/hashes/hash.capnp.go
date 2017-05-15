@@ -12,7 +12,7 @@ import (
 	server "zombiezen.com/go/capnproto2/server"
 )
 
-type HashFactory struct{ Client capnp.Client }
+type HashFactory struct{ Client *capnp.Client }
 
 // HashFactory_TypeID is the unique identifier for the type HashFactory.
 const HashFactory_TypeID = 0xaead580f97fddabc
@@ -201,7 +201,7 @@ func (p HashFactory_newSha1_Results_Promise) Hash() Hash {
 	return Hash{Client: p.Pipeline.GetPipeline(0).Client()}
 }
 
-type Hash struct{ Client capnp.Client }
+type Hash struct{ Client *capnp.Client }
 
 // Hash_TypeID is the unique identifier for the type Hash.
 const Hash_TypeID = 0xf29f97dd675a9431

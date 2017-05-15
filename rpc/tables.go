@@ -5,7 +5,6 @@ import (
 
 	"golang.org/x/net/context"
 	"zombiezen.com/go/capnproto2"
-	"zombiezen.com/go/capnproto2/rpc/internal/refcount"
 )
 
 // Table IDs
@@ -19,25 +18,28 @@ type (
 
 // impent is an entry in the import table.
 type impent struct {
-	rc   *refcount.RefCount
-	refs int
+	wc       *capnp.WeakClient
+	wireRefs int
 }
 
 // addImport increases the counter of the times the import ID was sent to this vat.
-func (c *Conn) addImport(id importID) capnp.Client {
+func (c *Conn) addImport(id importID) *capnp.Client {
 	if c.imports == nil {
 		c.imports = make(map[importID]*impent)
 	} else if ent := c.imports[id]; ent != nil {
-		ent.refs++
-		return ent.rc.Ref()
+		ent.wireRefs++
+		client, ok := ent.wc.AddRef()
+		if !ok {
+			panic("TODO(now)")
+		}
+		return client
 	}
-	client := &importClient{
+	client := capnp.NewClient(&importClient{
 		id:   id,
 		conn: c,
-	}
-	rc, ref := refcount.New(client)
-	c.imports[id] = &impent{rc: rc, refs: 1}
-	return ref
+	})
+	c.imports[id] = &impent{wc: client.WeakRef(), wireRefs: 1}
+	return client
 }
 
 // popImport removes the import ID and returns the number of times the import ID was sent to this vat.
@@ -49,9 +51,8 @@ func (c *Conn) popImport(id importID) (refs int) {
 	if ent == nil {
 		return 0
 	}
-	refs = ent.refs
 	delete(c.imports, id)
-	return refs
+	return ent.wireRefs
 }
 
 // An importClient implements capnp.Client for a remote capability.
@@ -148,8 +149,7 @@ func (ic *importClient) Close() error {
 
 type export struct {
 	id       exportID
-	rc       *refcount.RefCount
-	client   capnp.Client
+	client   *capnp.Client
 	wireRefs int
 }
 
@@ -162,7 +162,7 @@ func (c *Conn) findExport(id exportID) *export {
 
 // addExport ensures that the client is present in the table, returning its ID.
 // If the client is already in the table, the previous ID is returned.
-func (c *Conn) addExport(client capnp.Client) exportID {
+func (c *Conn) addExport(client *capnp.Client) exportID {
 	for i, e := range c.exports {
 		if e != nil && isSameClient(e.rc.Client, client) {
 			e.wireRefs++

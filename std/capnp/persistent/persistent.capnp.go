@@ -14,7 +14,7 @@ import (
 
 const PersistentAnnotation = uint64(0xf622595091cafb67)
 
-type Persistent struct{ Client capnp.Client }
+type Persistent struct{ Client *capnp.Client }
 
 // Persistent_TypeID is the unique identifier for the type Persistent.
 const Persistent_TypeID = 0xc8cb212fcd9f5691
@@ -214,7 +214,7 @@ func (p Persistent_SaveResults_Promise) SturdyRef() *capnp.Pipeline {
 	return p.Pipeline.GetPipeline(0)
 }
 
-type RealmGateway struct{ Client capnp.Client }
+type RealmGateway struct{ Client *capnp.Client }
 
 // RealmGateway_TypeID is the unique identifier for the type RealmGateway.
 const RealmGateway_TypeID = 0x84ff286cd00a3ed4

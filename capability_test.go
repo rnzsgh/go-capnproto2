@@ -4,7 +4,86 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+
+	"golang.org/x/net/context"
 )
+
+func TestResolveClient(t *testing.T) {
+	a := &dummyHook{resolved: make(chan struct{})}
+	b := &dummyHook{}
+	ca := NewClient(a)
+	cb := NewClient(b)
+	ctx := context.Background()
+
+	if ca.IsSame(cb) {
+		t.Error("before resolution, ca == cb")
+	}
+	ca.Call(ctx, new(Call))
+	a.next = cb.AddRef()
+	close(a.resolved)
+	ca.Call(ctx, new(Call))
+
+	if !ca.IsSame(cb) {
+		t.Error("after resolution, ca != cb")
+	}
+	if !a.closed {
+		t.Error("a.closed = false after resolution")
+	}
+	if b.closed {
+		t.Error("b.closed = true before closing")
+	}
+	if err := ca.Close(); err != nil {
+		t.Error("ca.Close() =", err)
+	}
+	if err := cb.Close(); err != nil {
+		t.Error("cb.Close() =", err)
+	}
+	if !b.closed {
+		t.Error("b.closed = false after closing")
+	}
+}
+
+type dummyHook struct {
+	next     *Client
+	resolved chan struct{}
+	closed   bool
+}
+
+func (dh *dummyHook) Call(ctx context.Context, call *Call) Answer {
+	select {
+	case <-dh.resolved:
+		return dh.next.Call(ctx, call)
+	default:
+		return ErrorAnswer(errors.New("dummy hook answer"))
+	}
+}
+
+func (dh *dummyHook) Resolved() <-chan struct{} {
+	return dh.resolved
+}
+
+func (dh *dummyHook) ResolvedClient() *Client {
+	return dh.next
+}
+
+func (dh *dummyHook) Brand() interface{} {
+	select {
+	case <-dh.resolved:
+		return dh.next.Brand()
+	default:
+		return nil
+	}
+}
+
+func (dh *dummyHook) Close() error {
+	dh.closed = true
+	select {
+	case <-dh.resolved:
+		return dh.next.Close()
+	default:
+		return nil
+	}
+}
 
 func TestToInterface(t *testing.T) {
 	_, seg, err := NewMessage(SingleSegment(nil))
@@ -252,6 +331,71 @@ func TestIsUnimplemented(t *testing.T) {
 		if ok := IsUnimplemented(test.e); ok != test.ok {
 			t.Errorf("IsUnimplemented(%#v) = %t; want %t", test.e, ok, test.ok)
 		}
+	}
+}
+
+func TestWeakClient(t *testing.T) {
+	h := new(dummyHook)
+	c1 := NewClient(h)
+	w := c1.WeakRef()
+	c2, ok := w.AddRef()
+	if !ok {
+		t.Fatal("AddRef on open client failed")
+	}
+	if !c1.IsSame(c2) {
+		t.Error("c1 != c2")
+	}
+	if err := c2.Close(); err != nil {
+		t.Errorf("w.AddRef().Close(): %v", err)
+	}
+	if h.closed {
+		t.Fatal("Closing second reference closed capability")
+	}
+	if err := c1.Close(); err != nil {
+		t.Errorf("w.AddRef().Close(): %v", err)
+	}
+	if !h.closed {
+		t.Errorf("Closing strong reference with weak reference kept capability open")
+	}
+	if _, ok := w.AddRef(); ok {
+		t.Error("w.AddRef() after close did not fail")
+	}
+}
+
+func TestResolveWeakClient(t *testing.T) {
+	a := &dummyHook{resolved: make(chan struct{})}
+	b := &dummyHook{}
+	ca := NewClient(a)
+	cb := NewClient(b)
+	wa := ca.WeakRef()
+	ctx := context.Background()
+
+	ca.Call(ctx, new(Call))
+	a.next = cb.AddRef()
+	close(a.resolved)
+	ca.Call(ctx, new(Call))
+
+	if err := ca.Close(); err != nil {
+		t.Error("ca.Close() =", err)
+	}
+	cb2, ok := wa.AddRef()
+	if !ok {
+		t.Error("wa.AddRef() failed after closing ca")
+	}
+	if !cb.IsSame(cb2) {
+		t.Error("cb != cb2")
+	}
+	if err := cb.Close(); err != nil {
+		t.Error("cb.Close() =", err)
+	}
+	if b.closed {
+		t.Error("b.closed = true before closing cb2")
+	}
+	if err := cb2.Close(); err != nil {
+		t.Error("cb2.Close() =", err)
+	}
+	if !b.closed {
+		t.Error("b.closed = false after closing cb2")
 	}
 }
 

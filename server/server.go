@@ -41,7 +41,7 @@ type server struct {
 // guarantees message delivery order by blocking each call on the
 // return or acknowledgment of the previous call.  See the Ack function
 // for more details.
-func New(methods []Method, closer Closer) capnp.Client {
+func New(methods []Method, closer Closer) *capnp.Client {
 	s := &server{
 		methods: make(sortedMethods, len(methods)),
 		closer:  closer,
@@ -52,7 +52,7 @@ func New(methods []Method, closer Closer) capnp.Client {
 	copy(s.methods, methods)
 	sort.Sort(s.methods)
 	go s.dispatch()
-	return s
+	return capnp.NewClient(s)
 }
 
 // dispatch runs in its own goroutine.
@@ -124,6 +124,19 @@ func (s *server) Call(ctx context.Context, cl *capnp.Call) capnp.Answer {
 	case <-ctx.Done():
 		return capnp.ErrorAnswer(ctx.Err())
 	}
+}
+
+func (s *server) Resolved() <-chan struct{} {
+	return nil
+}
+
+func (s *server) ResolvedClient() *capnp.Client {
+	panic("*server.ResolvedClient")
+}
+
+func (s *server) Brand() interface{} {
+	// TODO(soon): return something useful
+	return nil
 }
 
 func (s *server) Close() error {

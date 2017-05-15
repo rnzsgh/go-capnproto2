@@ -4,7 +4,6 @@ import (
 	"golang.org/x/net/context"
 	"zombiezen.com/go/capnproto2"
 	"zombiezen.com/go/capnproto2/internal/fulfiller"
-	"zombiezen.com/go/capnproto2/rpc/internal/refcount"
 	rpccapnp "zombiezen.com/go/capnproto2/std/capnp/rpc"
 )
 
@@ -16,7 +15,7 @@ import (
 // lockedCall is used to make a call to an arbitrary client while
 // holding onto c.mu.  Since the client could point back to c, naively
 // calling c.Call could deadlock.
-func (c *Conn) lockedCall(ctx context.Context, client capnp.Client, cl *capnp.Call) capnp.Answer {
+func (c *Conn) lockedCall(ctx context.Context, client *capnp.Client, cl *capnp.Call) capnp.Answer {
 dig:
 	for client := client; ; {
 		switch curr := client.(type) {

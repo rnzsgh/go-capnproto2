@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 
@@ -40,7 +41,7 @@ type Message struct {
 	//
 	// See https://capnproto.org/encoding.html#capabilities-interfaces for
 	// more details on the capability table.
-	CapTable []Client
+	CapTable []*Client
 
 	// TraverseLimit limits how many total bytes of data are allowed to be
 	// traversed while reading.  Traversal is counted when a Struct or
@@ -97,11 +98,40 @@ func NewMessage(arena Arena) (msg *Message, first *Segment, err error) {
 func (m *Message) Reset(arena Arena) {
 	m.mu.Lock()
 	m.Arena = arena
+	m.CloseCapTable()
 	m.CapTable = nil
 	m.segs = nil
 	m.firstSeg = Segment{}
 	m.mu.Unlock()
 	m.ReadLimiter().Reset(m.TraverseLimit)
+}
+
+// CloseCapTable closes and clears all the clients in the message's
+// capability table.
+func (m *Message) CloseCapTable() error {
+	var first error
+	var n int
+	for _, c := range m.CapTable {
+		err := c.Close()
+		if err == nil {
+			continue
+		}
+		n++
+		if first == nil {
+			first = err
+		}
+	}
+	m.CapTable = nil
+	switch n {
+	case 0:
+		return nil
+	case 1:
+		return fmt.Errorf("close message: %v", first)
+	case 2:
+		return fmt.Errorf("close message: %v (and 1 other)", first)
+	default:
+		return fmt.Errorf("close message: %v (and %d others)", first, n-1)
+	}
 }
 
 // Root returns the pointer to the message's root object.
@@ -123,8 +153,8 @@ func (m *Message) SetRoot(p Ptr) error {
 }
 
 // AddCap appends a capability to the message's capability table and
-// returns its ID.
-func (m *Message) AddCap(c Client) CapabilityID {
+// returns its ID.  AddCap takes ownership of c.
+func (m *Message) AddCap(c *Client) CapabilityID {
 	n := CapabilityID(len(m.CapTable))
 	m.CapTable = append(m.CapTable, c)
 	return n

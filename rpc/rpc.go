@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/net/context"
 	"zombiezen.com/go/capnproto2"
-	"zombiezen.com/go/capnproto2/rpc/internal/refcount"
 	rpccapnp "zombiezen.com/go/capnproto2/std/capnp/rpc"
 )
 
@@ -47,7 +46,7 @@ type Conn struct {
 
 type connParams struct {
 	log            Logger
-	mainFunc       func(context.Context) (capnp.Client, error)
+	mainFunc       func(context.Context) (*capnp.Client, error)
 	mainCloser     io.Closer
 	sendBufferSize int
 }
@@ -59,22 +58,23 @@ type ConnOption struct {
 
 // MainInterface specifies that the connection should use client when
 // receiving bootstrap messages.  By default, all bootstrap messages will
-// fail.  The client will be closed when the connection is closed.
-func MainInterface(client capnp.Client) ConnOption {
-	rc, ref1 := refcount.New(client)
-	ref2 := rc.Ref()
+// fail.  The connection will keep a reference to client for the lifetime
+// of the connection, but the caller still owns the passed-in reference.
+func MainInterface(client *capnp.Client) ConnOption {
+	ref := client.AddRef()
 	return ConnOption{func(c *connParams) {
-		c.mainFunc = func(ctx context.Context) (capnp.Client, error) {
-			return ref1, nil
+		c.mainFunc = func(ctx context.Context) (*capnp.Client, error) {
+			return ref.AddRef(), nil
 		}
-		c.mainCloser = ref2
+		c.mainCloser = ref
 	}}
 }
 
 // BootstrapFunc specifies the function to call to create a capability
 // for handling bootstrap messages.  This function should not make any
-// RPCs or block.
-func BootstrapFunc(f func(context.Context) (capnp.Client, error)) ConnOption {
+// RPCs or block.  The connection will close the returned client when
+// it is no longer needed.
+func BootstrapFunc(f func(context.Context) (*capnp.Client, error)) ConnOption {
 	return ConnOption{func(c *connParams) {
 		c.mainFunc = f
 	}}
@@ -849,7 +849,7 @@ func setReturnException(ret rpccapnp.Return, err error) rpccapnp.Exception {
 
 // clientFromResolution retrieves a client from a resolved question or
 // answer by applying a transform.
-func clientFromResolution(transform []capnp.PipelineOp, obj capnp.Ptr, err error) capnp.Client {
+func clientFromResolution(transform []capnp.PipelineOp, obj capnp.Ptr, err error) *capnp.Client {
 	if err != nil {
 		return capnp.ErrorClient(err)
 	}

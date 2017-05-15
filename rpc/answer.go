@@ -244,7 +244,7 @@ func joinFulfiller(f *fulfiller.Fulfiller, ca capnp.Answer) {
 }
 
 type queueClient struct {
-	client capnp.Client
+	client *capnp.Client
 	conn   *Conn
 
 	mu    sync.RWMutex
@@ -252,7 +252,7 @@ type queueClient struct {
 	calls qcallList
 }
 
-func newQueueClient(c *Conn, client capnp.Client, queue []qcall) *queueClient {
+func newQueueClient(c *Conn, client *capnp.Client, queue []qcall) *queueClient {
 	qc := &queueClient{
 		client: client,
 		conn:   c,

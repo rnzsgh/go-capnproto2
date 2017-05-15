@@ -4306,7 +4306,7 @@ func (p ListStructCapn_Promise) Struct() (ListStructCapn, error) {
 	return ListStructCapn{s}, err
 }
 
-type Echo struct{ Client capnp.Client }
+type Echo struct{ Client *capnp.Client }
 
 // Echo_TypeID is the unique identifier for the type Echo.
 const Echo_TypeID = 0x8e5322c1e9282534
@@ -4968,7 +4968,7 @@ func (p StackingB_Promise) Struct() (StackingB, error) {
 	return StackingB{s}, err
 }
 
-type CallSequence struct{ Client capnp.Client }
+type CallSequence struct{ Client *capnp.Client }
 
 // CallSequence_TypeID is the unique identifier for the type CallSequence.
 const CallSequence_TypeID = 0xabaedf5f7817c820

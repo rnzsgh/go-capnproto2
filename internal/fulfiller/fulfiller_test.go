@@ -62,7 +62,7 @@ func TestFulfiller_QueuedCallsDeliveredInOrder(t *testing.T) {
 	f := new(Fulfiller)
 	oc := new(orderClient)
 	result := newStruct(t, capnp.ObjectSize{PointerCount: 1})
-	in := result.Segment().Message().AddCap(oc)
+	in := result.Segment().Message().AddCap(capnp.NewClient(oc))
 	result.SetPtr(0, capnp.NewInterface(result.Segment(), in).ToPtr())
 	ctx := context.Background()
 
@@ -114,6 +114,18 @@ func (oc *orderClient) Call(ctx context.Context, cl *capnp.Call) capnp.Answer {
 	st.SetUint64(0, uint64(*oc))
 	*oc++
 	return capnp.ImmediateAnswer(st)
+}
+
+func (oc *orderClient) Resolved() <-chan struct{} {
+	return nil
+}
+
+func (oc *orderClient) ResolvedClient() *capnp.Client {
+	panic("never resolves")
+}
+
+func (oc *orderClient) Brand() interface{} {
+	return nil
 }
 
 func (oc *orderClient) Close() error {

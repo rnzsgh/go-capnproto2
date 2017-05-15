@@ -12,7 +12,7 @@ import (
 	server "zombiezen.com/go/capnproto2/server"
 )
 
-type Handle struct{ Client capnp.Client }
+type Handle struct{ Client *capnp.Client }
 
 // Handle_TypeID is the unique identifier for the type Handle.
 const Handle_TypeID = 0x8161ddf3e74bd0d1
@@ -33,7 +33,7 @@ func Handle_Methods(methods []server.Method, s Handle_Server) []server.Method {
 	return methods
 }
 
-type HandleFactory struct{ Client capnp.Client }
+type HandleFactory struct{ Client *capnp.Client }
 
 // HandleFactory_TypeID is the unique identifier for the type HandleFactory.
 const HandleFactory_TypeID = 0x8491a7fe75fe0bce
@@ -222,7 +222,7 @@ func (p HandleFactory_newHandle_Results_Promise) Handle() Handle {
 	return Handle{Client: p.Pipeline.GetPipeline(0).Client()}
 }
 
-type Hanger struct{ Client capnp.Client }
+type Hanger struct{ Client *capnp.Client }
 
 // Hanger_TypeID is the unique identifier for the type Hanger.
 const Hanger_TypeID = 0x8ae08044aae8a26e
@@ -388,7 +388,7 @@ func (p Hanger_hang_Results_Promise) Struct() (Hanger_hang_Results, error) {
 	return Hanger_hang_Results{s}, err
 }
 
-type CallOrder struct{ Client capnp.Client }
+type CallOrder struct{ Client *capnp.Client }
 
 // CallOrder_TypeID is the unique identifier for the type CallOrder.
 const CallOrder_TypeID = 0x92c5ca8314cdd2a5
@@ -570,7 +570,7 @@ func (p CallOrder_getCallSequence_Results_Promise) Struct() (CallOrder_getCallSe
 	return CallOrder_getCallSequence_Results{s}, err
 }
 
-type Echoer struct{ Client capnp.Client }
+type Echoer struct{ Client *capnp.Client }
 
 // Echoer_TypeID is the unique identifier for the type Echoer.
 const Echoer_TypeID = 0x841756c6a41b2a45
@@ -820,7 +820,7 @@ func (p Echoer_echo_Results_Promise) Cap() CallOrder {
 	return CallOrder{Client: p.Pipeline.GetPipeline(0).Client()}
 }
 
-type PingPong struct{ Client capnp.Client }
+type PingPong struct{ Client *capnp.Client }
 
 // PingPong_TypeID is the unique identifier for the type PingPong.
 const PingPong_TypeID = 0xf004c474c2f8ee7a
@@ -1002,7 +1002,7 @@ func (p PingPong_echoNum_Results_Promise) Struct() (PingPong_echoNum_Results, er
 	return PingPong_echoNum_Results{s}, err
 }
 
-type Adder struct{ Client capnp.Client }
+type Adder struct{ Client *capnp.Client }
 
 // Adder_TypeID is the unique identifier for the type Adder.
 const Adder_TypeID = 0x8f9cac550b1bf41f

@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"golang.org/x/net/context"
 	"zombiezen.com/go/capnproto2"
 	air "zombiezen.com/go/capnproto2/internal/aircraftlib"
 	"zombiezen.com/go/capnproto2/internal/capnptool"
@@ -889,7 +890,8 @@ func TestZDataAccessors(t *testing.T) {
 
 func TestInterfaceSet(t *testing.T) {
 	t.Parallel()
-	cl := air.Echo{Client: capnp.ErrorClient(errors.New("foo"))}
+	brand := new(struct{})
+	cl := air.Echo{Client: capnp.NewClient(brandClient{brand})}
 	_, s, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		t.Fatal(err)
@@ -901,14 +903,15 @@ func TestInterfaceSet(t *testing.T) {
 
 	base.SetEcho(cl)
 
-	if base.Echo() != cl {
-		t.Errorf("base.Echo() = %#v; want %#v", base.Echo(), cl)
+	if base.Echo().Client.Brand() != brand {
+		t.Errorf("base.Echo() = %#v; want %#v", base.Echo().Client.Brand(), brand)
 	}
 }
 
 func TestInterfaceSetNull(t *testing.T) {
 	t.Parallel()
-	cl := air.Echo{Client: capnp.ErrorClient(errors.New("foo"))}
+	brand := new(struct{})
+	cl := air.Echo{Client: capnp.NewClient(brandClient{brand})}
 	msg, s, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		t.Fatal(err)
@@ -931,7 +934,8 @@ func TestInterfaceSetNull(t *testing.T) {
 
 func TestInterfaceCopyToOtherMessage(t *testing.T) {
 	t.Parallel()
-	cl := air.Echo{Client: capnp.ErrorClient(errors.New("foo"))}
+	brand := new(struct{})
+	cl := air.Echo{Client: capnp.NewClient(brandClient{brand})}
 	_, s1, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		t.Fatal(err)
@@ -958,13 +962,13 @@ func TestInterfaceCopyToOtherMessage(t *testing.T) {
 
 	if base, err := hoth2.Base(); err != nil {
 		t.Errorf("hoth2.Base() error: %v", err)
-	} else if base.Echo() != cl {
-		t.Errorf("hoth2.Base().Echo() = %#v; want %#v", base.Echo(), cl)
+	} else if base.Echo().Client.Brand() != brand {
+		t.Errorf("hoth2.Base().Echo().Client.Brand() = %#v; want %#v", base.Echo().Client.Brand(), brand)
 	}
 	tab2 := s2.Message().CapTable
 	if len(tab2) == 1 {
-		if tab2[0] != cl.Client {
-			t.Errorf("s2.Message().CapTable[0] = %#v; want %#v", tab2[0], cl.Client)
+		if tab2[0].Brand() != brand {
+			t.Errorf("s2.Message().CapTable[0].Brand() = %#v; want %#v", tab2[0].Brand(), brand)
 		}
 	} else {
 		t.Errorf("len(s2.Message().CapTable) = %d; want 1", len(tab2))
@@ -973,7 +977,8 @@ func TestInterfaceCopyToOtherMessage(t *testing.T) {
 
 func TestInterfaceCopyToOtherMessageWithCaps(t *testing.T) {
 	t.Parallel()
-	cl := air.Echo{Client: capnp.ErrorClient(errors.New("foo"))}
+	brand := new(struct{})
+	cl := air.Echo{Client: capnp.NewClient(brandClient{brand})}
 	_, s1, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		t.Fatal(err)
@@ -1001,13 +1006,37 @@ func TestInterfaceCopyToOtherMessageWithCaps(t *testing.T) {
 
 	if base, err := hoth2.Base(); err != nil {
 		t.Errorf("hoth2.Base() error: %v", err)
-	} else if base.Echo() != cl {
-		t.Errorf("hoth2.Base().Echo() = %#v; want %#v", base.Echo(), cl)
+	} else if base.Echo().Client.Brand() != brand {
+		t.Errorf("hoth2.Base().Echo().Client.Brand() = %#v; want %#v", base.Echo().Client.Brand(), brand)
 	}
 	tab2 := s2.Message().CapTable
 	if len(tab2) != 2 {
 		t.Errorf("len(s2.Message().CapTable) = %d; want 2", len(tab2))
 	}
+}
+
+type brandClient struct {
+	brand interface{}
+}
+
+func (bc brandClient) Call(context.Context, *capnp.Call) capnp.Answer {
+	return capnp.ErrorAnswer(errors.New("call on brand client"))
+}
+
+func (bc brandClient) Resolved() <-chan struct{} {
+	return nil
+}
+
+func (bc brandClient) ResolvedClient() *capnp.Client {
+	panic("brandClient.ResolvedClient")
+}
+
+func (bc brandClient) Brand() interface{} {
+	return bc.brand
+}
+
+func (bc brandClient) Close() error {
+	return nil
 }
 
 func TestReadListInStruct(t *testing.T) {
